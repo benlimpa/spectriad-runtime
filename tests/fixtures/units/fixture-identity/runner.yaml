@@ -1,0 +1,4 @@
+runner:
+  env: SPECTRIAD_FIXTURE_OPT
+  flags:
+    head: []

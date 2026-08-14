@@ -1,0 +1,31 @@
+[project]
+name = "spectriad-runtime"
+version = "0.1.0"
+description = "SpecTriad runtime: grammar-backed input generation, MLIR constraint checking, and deterministic replay of specification bundles"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.12"
+dependencies = [
+    # Pure-Python ANTLR runtime for the vendored .pg grammar front end.
+    # No Java is needed at install time or run time: the generated
+    # lexer/parser modules are committed as source.
+    "antlr4-python3-runtime>=4.13,<4.14",
+    # Compiled grammar generators draw regex-shaped terminals with rstr.
+    "rstr>=3.2.2",
+    "pyyaml>=6.0",
+    "xdsl>=0.69.0",
+    "numpy>=2",
+]
+
+[project.scripts]
+spectriad-runtime = "spectriad_runtime.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/spectriad_runtime"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src", "tests", "README.md", "CHANGELOG.md"]

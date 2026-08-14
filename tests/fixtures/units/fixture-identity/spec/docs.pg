@@ -1,0 +1,5 @@
+// Fixture input-spec grammar: one func.func over arith, with a
+// two-way alternative so different seeds draw different modules.
+start: module;
+module: 'func.func @f(%a: i32, %b: i32) -> i32 {\n  %0 = arith.' op ' %a, %b : i32\n  func.return %0 : i32\n}\n';
+op: 'addi' | 'muli';

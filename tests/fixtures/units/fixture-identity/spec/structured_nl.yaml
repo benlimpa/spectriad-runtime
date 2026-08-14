@@ -1,0 +1,9 @@
+docs:
+- id: DS_O1
+  side: output
+  quantifier: all
+  text: The transformation preserves every arith operation.
+- id: DS_O2
+  side: output
+  quantifier: all
+  text: The output keeps exactly one function.

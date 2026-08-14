@@ -1,0 +1,34 @@
+{
+  "derived_from": {
+    "method": "fixture corpus built once from the grammar at packaging time"
+  },
+  "records": [
+    {
+      "accepted": true,
+      "input_sha": "919f2aaab403",
+      "seed": 1,
+      "source": "docs"
+    },
+    {
+      "accepted": true,
+      "input_sha": "cd5ffb30abb5",
+      "seed": 2,
+      "source": "docs"
+    },
+    {
+      "accepted": true,
+      "input_sha": "cd5ffb30abb5",
+      "seed": 3,
+      "source": "docs"
+    },
+    {
+      "accepted": true,
+      "input_sha": "919f2aaab403",
+      "seed": 7,
+      "source": "docs"
+    }
+  ],
+  "schema": 1,
+  "spec_hash": "4cafe8117719d023",
+  "unit": "fixture-identity"
+}

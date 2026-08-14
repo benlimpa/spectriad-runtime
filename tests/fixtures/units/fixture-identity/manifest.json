@@ -1,0 +1,19 @@
+{
+  "created": 0,
+  "exported_from": {
+    "workspace": "tests/fixtures"
+  },
+  "intent_freeze": {
+    "status": "fixture"
+  },
+  "runtime_version": "0.1.0",
+  "schema": 1,
+  "seeds": {
+    "count": 4,
+    "derived_from": "fixture"
+  },
+  "spec_hash": "4cafe8117719d023",
+  "subject_repository": "example/stub-subject",
+  "subject_revision": "fixture",
+  "unit": "fixture-identity"
+}
