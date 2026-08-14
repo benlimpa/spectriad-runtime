@@ -90,6 +90,25 @@ class ReplayTest(unittest.TestCase):
             with self.assertRaises(bundle.BundleError):
                 replay.replay_unit(unit)
 
+    def test_runner_json_declaration_is_read(self):
+        """A unit exported with runner.json needs no --runner-env: the
+        declaration is picked up automatically (explicit flags still
+        override, exercised by the other tests via runner.yaml)."""
+        _configure_stub()
+        with tempfile.TemporaryDirectory() as td:
+            unit = Path(td) / "fixture-identity"
+            shutil.copytree(FIXTURE_UNIT, unit)
+            (unit / "runner.yaml").unlink()
+            (unit / "runner.json").write_text(json.dumps({
+                "schema": 1,
+                "env": "SPECTRIAD_FIXTURE_OPT",
+                "flags": {"head": []},
+            }))
+            report = replay.replay_unit(unit)
+        self.assertEqual(report["runner"], "configured")
+        self.assertEqual(report["executed"], 4)
+        self.assertEqual(report["exit_code"], 0)
+
     def test_cli_end_to_end(self):
         _configure_stub()
         with tempfile.TemporaryDirectory() as td:

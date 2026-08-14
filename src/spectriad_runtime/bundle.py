@@ -126,7 +126,24 @@ def load_unit(unit_dir: Path) -> dict:
 
 
 def _runner_declaration(unit_dir: Path) -> dict | None:
-    """The unit's stored runner declaration, when the export carried one."""
+    """The unit's stored runner declaration, when the export carried one.
+
+    The bundle exporter writes `runner.json` beside `manifest.json`
+    (schema: top-level `env` names the command-prefix environment
+    variable, `flags` maps variant name to flag list; an optional
+    `profiles`/`default_profile` pair carries the exporting unit's full
+    profile declaration verbatim, for reference). The YAML fallbacks
+    accept hand-assembled units. Explicit `--runner-env/--runner-flags`
+    on the CLI override whatever is stored here.
+    """
+    runner_json = unit_dir / "runner.json"
+    if runner_json.is_file():
+        try:
+            decl = json.loads(runner_json.read_text())
+        except json.JSONDecodeError as e:
+            raise BundleError(f"runner.json unreadable: {e}") from e
+        if isinstance(decl, dict) and decl.get("env"):
+            return decl
     for rel in ("runner.yaml", "derivations.yaml", "spec/runner.yaml"):
         p = unit_dir / rel
         if not p.is_file():

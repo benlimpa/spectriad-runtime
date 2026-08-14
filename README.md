@@ -1,9 +1,10 @@
 # spectriad-runtime
 
 The public runtime for SpecTriad specification bundles: grammar-backed
-input generation, an MLIR input/output constraint checker, and a
-`replay` command that deterministically re-evaluates a bundle unit's
-frozen seed corpus against the current subject compiler.
+input generation, an MLIR input/output constraint checker, a `replay`
+command that deterministically re-evaluates a bundle unit's frozen seed
+corpus against the current subject compiler, and a `generate` command
+that runs budgeted property-based testing over the unit's grammars.
 
 Pure Python. Installing and running needs **no Java**: the ANTLR
 lexer/parser modules for the `.pg` grammar format are committed as
@@ -13,6 +14,7 @@ generated source, and the only ANTLR dependency is the pure-Python
 ```
 pip install spectriad-runtime
 spectriad-runtime replay path/to/units/<unit-id>
+spectriad-runtime generate path/to/units/<unit-id> --seeds 200
 ```
 
 ## What a bundle unit is
@@ -33,6 +35,12 @@ units/<unit-id>/
                         and the input content hash (sha256, 12 hex)
   manifest.json         unit id, spec hash, subject source revision,
                         target runtime version, exporter identity
+  runner.json           the unit's subject-runner declaration (when the
+                        exporter carried one): `env` names the
+                        command-prefix environment variable, `flags`
+                        maps variant name to flag list; an optional
+                        `profiles`/`default_profile` pair preserves the
+                        exporting unit's full profile declaration
 ```
 
 Each source column's spec states only what that source states; input
@@ -56,9 +64,11 @@ other revision, not the bundle's provenance.
    declaration is env-var based: the declaration's `env` key names an
    environment variable holding a shell-split command prefix (a local
    binary, or e.g. `ssh host docker run --rm -i image /work/bin/opt`);
-   the input is piped over stdin and the output read from stdout. Pass
-   `--runner-env VAR --runner-flags "--the-pass"` when the unit does
-   not store a declaration. With no compiler configured the run reports
+   the input is piped over stdin and the output read from stdout. Units
+   exported with a `runner.json` need nothing beyond setting that
+   environment variable; pass `--runner-env VAR --runner-flags
+   "--the-pass"` to override the stored declaration or when the unit
+   does not store one. With no compiler configured the run reports
    an infrastructure outcome (exit 3), never a fake pass.
 4. **Evaluates the output constraints** of every source column on each
    fresh output and reports per-constraint verdict SETS
@@ -72,13 +82,48 @@ and a violation count of zero alone proves nothing — read the verdict
 sets.
 
 Replay is deterministic re-evaluation of a frozen corpus. It is not
-property-based testing and is not described as such; a generative mode
-is planned separately.
+property-based testing and is not described as such; `generate` is the
+property-based-testing mode.
 
 Exit codes: `0` clean replay; `1` usage or bundle error; `2` input
 regeneration hash mismatch or generation failure; `3` the subject
 compiler never ran; `4` behavioral difference (constraint FAIL/ERROR
 or acceptance drift).
+
+## The generate contract
+
+`spectriad-runtime generate <unit-dir> --seeds N` (and/or
+`--duration SECONDS`; with both, whichever budget runs out first ends
+the run):
+
+1. **Verifies the spec tree** exactly as replay does.
+2. **Draws fresh inputs from the unit's grammars** under the budget.
+   Source columns are round-robined the way the internal campaign
+   driver assigns them: columns are sorted and seed `s` draws from
+   `sources[s % len(sources)]`. Seeds are sequential from `--seed-base`
+   (default 0), so a run is reproducible from `(--seed-base, --seeds)`
+   alone. There is no coverage-directed or novelty-based seed selection
+   in v0.2 — sequential seeds are deliberate: two numbers reproduce the
+   run, and that is sufficient for maintainer-side budgets.
+3. **Runs the subject compiler** on each generated input, with the same
+   runner declaration contract as replay (stored `runner.json`, or
+   `--runner-env/--runner-flags` override). A compiler REJECTION of a
+   grammar-conforming input is a behavioral finding here: the
+   generating source's input spec claims that input is in the pass's
+   domain. With no compiler configured the run is an infrastructure
+   outcome (exit 3), never a pass.
+4. **Evaluates the output constraints** of every source column on each
+   accepted pair, with the same honest verdict sets as replay.
+5. **Preserves everything worth a second look** to the output directory
+   (`--out`, default `spectriad-generate-<unit>`): each rejection and
+   each constraint FAIL/ERROR pair keeps its input, output or
+   diagnostics, per-constraint verdicts, and a `meta.json`; generation
+   failures keep the generator error; `report.json` is always written.
+
+Exit codes are the same contract as replay: `0` clean; `1` usage or
+bundle error; `2` generation failure; `3` the subject compiler never
+ran; `4` behavioral difference (constraint FAIL/ERROR or a rejected
+generated input).
 
 Optional oracle binaries, also env-var configured (unset means an
 honest STUB, never a silent pass): `SPECTRIAD_UPSTREAM_MLIR_OPT`
@@ -98,8 +143,9 @@ remote plumbing).
 - `spectriad_runtime.checker` — the MLIR pair checker: xdsl-backed AST,
   feature library, trigger/rule constraint evaluator, sandboxed ad-hoc
   predicates, reference interpreter, and the external oracles.
-- `spectriad_runtime.bundle` / `.replay` / `.cli` — bundle-unit
-  loading, the replay engine, and the console script.
+- `spectriad_runtime.bundle` / `.replay` / `.generate` / `.cli` —
+  bundle-unit loading, the replay engine, the budgeted PBT engine, and
+  the console script.
 
 ## Maintaining the grammar front end
 

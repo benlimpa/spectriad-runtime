@@ -1,7 +1,7 @@
 [project]
 name = "spectriad-runtime"
-version = "0.1.0"
-description = "SpecTriad runtime: grammar-backed input generation, MLIR constraint checking, and deterministic replay of specification bundles"
+version = "0.2.0"
+description = "SpecTriad runtime: grammar-backed input generation, MLIR constraint checking, deterministic replay and budgeted property-based testing of specification bundles"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.12"
