@@ -1,5 +1,50 @@
 # Changelog
 
+## 0.3.0 — 2026-08-24
+
+- **Spec-only (schema 2) units.** The current export format is now the
+  primary one: a flat `statements:` list instead of source columns, one
+  shared `spec/base.pg` of well-formedness fragments, and one
+  `spec/gen/<statement id>.pg` generator per formalized input
+  statement. The generator actually compiled is the statement's own
+  fragment followed by the base — own text FIRST, because a compiled
+  generator roots at the first nonterminal in the file and a base
+  placed ahead of it would silently become the start rule. A seed
+  record's `source` names the GENERATOR it was drawn from, and
+  `generate` round-robins the sorted generator list the same way it
+  round-robined source columns.
+- **Generator-scoped constraint evaluation.** An output constraint is
+  evaluated only on the generators its statement scopes it to: an
+  explicit `generator:` wins, otherwise the `baseline` generator claims
+  it, and absent a baseline a property that names no generator is
+  checked on every generator. Verdict sets are keyed by the bare
+  constraint id. A property that claims something about one input
+  population says nothing about another, so counting it there would
+  inflate the verdict set with pairs it never spoke about.
+- **`spec_hash` covers `spec/gen/*.pg`.** An edited generator is a spec
+  change like any other. Schema-1 units have no `spec/gen`, so their
+  hashes are unchanged.
+- **Exit 5: the seed corpus is honestly empty.** A unit exported with
+  no frozen seeds has nothing to replay; that is not a clean run, and
+  it no longer falls into exit 3. The report says so and names
+  `generate` as the meaningful mode for the unit.
+- **`spectriad-runtime suite <bundle-root>`.** Discovers every unit
+  under `units/` and `specs/`, runs each, and reduces their exit codes
+  to one. `--mode auto` (the default) replays a unit with seed records
+  and generates over one whose corpus is empty; `--mode replay` and
+  `--mode generate` force one mode on every unit. A unit that will not
+  load is reported BROKEN (exit 2), never skipped and never counted
+  clean; discovering no units is exit 1, never a clean zero over an
+  empty set. An `expectations.json` (unit id -> `{"status":
+  "clean"|"known-drift", "note": ...}`, default at the bundle root,
+  `--expectations` to override) suppresses a known-drifting unit's exit
+  code but never its line, and flags the reverse transition: a unit
+  expected to drift that comes back CLEAN is UNEXPECTED-CLEAN and
+  exits 4, because the spec has to be rechecked before the expectation
+  is dropped. `suite-report.json` is always written under `--out`.
+- Legacy schema-1 (three-source) units replay and generate exactly as
+  before, byte for byte.
+
 ## 0.2.0 — 2026-08-13
 
 - `spectriad-runtime generate <bundle-unit-dir>`: budgeted

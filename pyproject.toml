@@ -1,6 +1,6 @@
 [project]
 name = "spectriad-runtime"
-version = "0.2.0"
+version = "0.3.0"
 description = "SpecTriad runtime: grammar-backed input generation, MLIR constraint checking, deterministic replay and budgeted property-based testing of specification bundles"
 readme = "README.md"
 license = "MIT"
