@@ -1,0 +1,14 @@
+# Generator constraints: one per formalized input statement. Each rule
+# is a verbatim excerpt of that statement's own generator.
+constraints:
+  - id: IC1
+    nl: I1
+    name: arith-varies
+    rule: "op: 'addi' | 'muli';"
+    provenance: fixture
+
+  - id: IC2
+    nl: I2
+    name: one-function-signature
+    rule: "sig: '(%a: i32, %b: i32) -> i32';"
+    provenance: fixture

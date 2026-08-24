@@ -1,0 +1,23 @@
+{
+  "created": 0,
+  "exported_from": {
+    "workspace": "tests/fixtures"
+  },
+  "intent_freeze": {
+    "status": "fixture"
+  },
+  "runner": {
+    "declared": true,
+    "env": "SPECTRIAD_FIXTURE_OPT"
+  },
+  "runtime_version": "0.3.0",
+  "schema": 2,
+  "seeds": {
+    "count": 4,
+    "derived_from": "fixture"
+  },
+  "spec_hash": "0d019d45756ff30a",
+  "subject_repository": "example/stub-subject",
+  "subject_revision": "fixture",
+  "unit": "fixture-spec-only"
+}

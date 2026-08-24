@@ -1,0 +1,31 @@
+# Output properties: one per formalized output statement. The statement
+# a property names says which generator it is checked on. O1 names none
+# and so is checked on the baseline; O2 and O3 are scoped to I1.
+constraints:
+  - id: OC1
+    nl: O1
+    name: arith-preserved-baseline
+    trigger: '{id="out"}'
+    rule: ops_preserved("arith.*")
+    provenance: fixture
+
+  - id: OC2
+    nl: O2
+    name: arith-preserved-varied
+    trigger: '{id="out"}'
+    rule: ops_preserved("arith.*")
+    provenance: fixture
+
+  - id: OC3
+    nl: O3
+    name: one-function
+    trigger: '{id="out"}'
+    rule: adhoc("one_function")
+    check_kind: python
+    check_code: |
+      def check(inp, out, lib):
+          funcs = [op for op in out.ops if op.name == "func.func"]
+          if len(funcs) != 1:
+              return (False, "expected exactly one func.func", [])
+          return (True, "one func.func", [])
+    provenance: fixture

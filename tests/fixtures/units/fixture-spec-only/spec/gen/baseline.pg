@@ -1,0 +1,3 @@
+// Baseline candidate: one function over a single arith operation.
+start: module;
+module: 'func.func @f' sig ' {\n  %0 = arith.addi %a, %b : i32\n' ret;

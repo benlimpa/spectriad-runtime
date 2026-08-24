@@ -1,0 +1,34 @@
+{
+  "derived_from": {
+    "method": "fixture corpus built once from the generators at packaging time"
+  },
+  "records": [
+    {
+      "accepted": true,
+      "input_sha": "e267d1c45a5e",
+      "seed": 0,
+      "source": "I1"
+    },
+    {
+      "accepted": true,
+      "input_sha": "cd5ffb30abb5",
+      "seed": 1,
+      "source": "baseline"
+    },
+    {
+      "accepted": true,
+      "input_sha": "e267d1c45a5e",
+      "seed": 2,
+      "source": "I1"
+    },
+    {
+      "accepted": true,
+      "input_sha": "cd5ffb30abb5",
+      "seed": 3,
+      "source": "baseline"
+    }
+  ],
+  "schema": 1,
+  "spec_hash": "0d019d45756ff30a",
+  "unit": "fixture-spec-only"
+}

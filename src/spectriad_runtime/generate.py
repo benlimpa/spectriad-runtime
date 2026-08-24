@@ -1,13 +1,18 @@
 """Budgeted property-based testing over a bundle unit's grammars.
 
 `generate` is the mode that makes this a PBT integration: it draws
-FRESH inputs from the unit's per-source input grammars under a seed or
-wall-clock budget, runs the current subject compiler on each, and
-evaluates every source column's output constraints on the accepted
-pairs. Source columns are round-robined the same way the internal
-campaign driver assigns them: sources are sorted and seed `s` draws
-from `sources[s % len(sources)]`, so a docs/code/examples unit spreads
-the budget evenly across columns.
+FRESH inputs from the unit's input grammars under a seed or wall-clock
+budget, runs the current subject compiler on each, and evaluates the
+output constraints on the accepted pairs.
+
+In a spec-only (schema 2) unit the streams are the unit's GENERATORS —
+each `spec/gen/<statement id>.pg` composed over the shared
+`spec/base.pg` — and a constraint is evaluated only on the generators
+its statement scopes it to. In a legacy schema-1 unit the streams are
+the source columns and every column's constraints are evaluated on
+every pair. Either way streams are round-robined the way the internal
+campaign driver assigns them: streams are sorted and seed `s` draws
+from `streams[s % len(streams)]`, so the budget spreads evenly.
 
 Seed selection is sequential from `--seed-base` (v0.2): there is no
 coverage-directed or novelty-based selection here, deliberately —
@@ -22,7 +27,7 @@ Honesty rules (identical to replay):
 * A run where the subject compiler never executed is an infrastructure
   outcome (exit 3), never a pass.
 * A compiler rejection of a grammar-conforming input is a behavioral
-  finding: the source's input spec claims the input is accepted.
+  finding: the unit's input spec claims the input is accepted.
 
 Everything worth a second look is preserved to the output directory:
 rejections and constraint failures keep the input, the output or
@@ -39,7 +44,7 @@ from pathlib import Path
 
 from . import bundle, generation, runner
 from .checker.ptc import check_constraint
-from .replay import VERDICT_ORDER
+from .replay import VERDICT_ORDER, _grammar_texts, _scoped_constraints
 
 PRESERVE_LIST_CAP = 25
 
@@ -68,6 +73,7 @@ def generate_unit(
     report: dict = {
         "mode": "generate",
         "unit": manifest.get("unit"),
+        "schema": unit["schema"],
         "unit_dir": str(unit["unit_dir"]),
         "manifest_spec_hash": manifest.get("spec_hash"),
         "recomputed_spec_hash": unit["spec_hash"],
@@ -105,9 +111,12 @@ def generate_unit(
     findings_dir.mkdir(parents=True, exist_ok=True)
     report["out_dir"] = str(out_dir)
 
-    # Round-robin source assignment, matching the internal driver:
-    # sorted columns, seed modulo the column count.
-    sources = sorted(unit["sources"])
+    # Round-robin stream assignment, matching the internal driver:
+    # sorted streams, seed modulo the stream count. A stream is a
+    # generator in a spec-only unit and a source column in a legacy one.
+    grammars = _grammar_texts(unit)
+    scoped = _scoped_constraints(unit)
+    streams = sorted(grammars)
     gen_failures, rejections, infrastructure = [], [], []
     verdict_sets: dict[str, Counter] = {}
     findings = 0
@@ -141,13 +150,12 @@ def generate_unit(
             break
         seed = seed_base + i
         i += 1
-        src = sources[seed % len(sources)]
+        src = streams[seed % len(streams)]
         if progress and (i == 1 or i % 25 == 0):
             progress(f"seed {seed} ({src}), {i} generated")
-        entry = unit["sources"][src]
         try:
             text = generation.generate_from_text(
-                entry["grammar_text"], seed, stem=f"{report['unit']}-{src}"
+                grammars[src], seed, stem=f"{report['unit']}-{src}"
             )
         except RuntimeError as e:
             row = {"seed": seed, "source": src, "error": str(e)[:300]}
@@ -166,8 +174,9 @@ def generate_unit(
                     {"seed": seed, "source": src, "detail": res["runner"][:200]}
                 )
                 continue
-            # The generating source's input spec says this input is in
-            # the pass's domain; a rejection is a disagreement.
+            # The input spec says this input is in the pass's domain;
+            # a rejection is a disagreement. The claim is unit-wide in a
+            # spec-only unit and the generating column's in a legacy one.
             row = {"seed": seed, "source": src, "detail": res["runner"][:200]}
             row["preserved"] = _preserve(
                 seed, src, "rejection",
@@ -179,18 +188,16 @@ def generate_unit(
             continue
         executed += 1
         pair_verdicts, pair_bad = {}, False
-        for csrc, entry2 in unit["sources"].items():
-            for constraint in entry2["output_constraints"]:
-                cid = f"{csrc}/{constraint.get('id')}"
-                v = check_constraint(constraint, text, res["output"])
-                verdict_sets.setdefault(cid, Counter())[v.status] += 1
-                pair_verdicts[cid] = {
-                    "status": v.status,
-                    "detail": v.detail[:300],
-                    "lines": v.lines,
-                }
-                if v.status in ("FAIL", "ERROR"):
-                    pair_bad = True
+        for cid, constraint in scoped.get(src, []):
+            v = check_constraint(constraint, text, res["output"])
+            verdict_sets.setdefault(cid, Counter())[v.status] += 1
+            pair_verdicts[cid] = {
+                "status": v.status,
+                "detail": v.detail[:300],
+                "lines": v.lines,
+            }
+            if v.status in ("FAIL", "ERROR"):
+                pair_bad = True
         if pair_bad:
             _preserve(
                 seed, src, "constraint_failure",

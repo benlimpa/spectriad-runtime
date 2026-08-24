@@ -1,0 +1,48 @@
+# Fixture spec-only (schema 2) statements: a flat list, no source
+# columns. I1 owns spec/gen/I1.pg; I2 is covered by the baseline
+# generator. An output statement's `generator:` says which population
+# its property is checked on; O1 names none and falls to the baseline.
+statements:
+  - id: I1
+    side: input
+    quantifier: for every generated module
+    text: >-
+      the population varies the arith operation the function computes
+    path: fixture/docs.md
+    source_quote: "the pass rewrites arithmetic in place"
+
+  - id: I2
+    side: input
+    quantifier: for every generated module
+    text: >-
+      every generated input is one func.func with a declared i32
+      signature
+    path: fixture/docs.md
+    source_quote: "each candidate is a single function"
+
+  - id: O1
+    side: output
+    quantifier: for every produced module
+    text: >-
+      the transformation preserves every arith operation
+    path: fixture/docs.md
+    source_quote: "arithmetic is preserved"
+
+  - id: O2
+    side: output
+    generator: I1
+    quantifier: for every produced module
+    text: >-
+      the transformation preserves every arith operation of a module
+      whose arithmetic varies
+    path: fixture/docs.md
+    source_quote: "arithmetic is preserved"
+
+  - id: O3
+    side: output
+    generator: I1
+    quantifier: for every produced module
+    text: >-
+      the output keeps exactly one function
+    path: fixture/docs.md
+    source_quote: "each candidate is a single function"

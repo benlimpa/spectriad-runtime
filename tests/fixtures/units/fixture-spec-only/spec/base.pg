@@ -1,0 +1,9 @@
+// Fixture shared well-formedness fragments for the spec-only unit.
+//
+// NEVER RUN ALONE. Every spec/gen/<statement id>.pg is compiled with
+// its own text FIRST, so `start` always comes from the statement's own
+// generator and this file only supplies fragments: the one function
+// signature every candidate declares, and the terminator that returns
+// the result at the type that signature declares.
+sig: '(%a: i32, %b: i32) -> i32';
+ret: '  func.return %0 : i32\n}\n';

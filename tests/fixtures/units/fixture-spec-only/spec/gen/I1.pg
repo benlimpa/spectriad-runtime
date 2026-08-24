@@ -1,0 +1,5 @@
+// The I1 population: the arith operation varies, so different seeds
+// draw different modules from this generator.
+start: module;
+module: 'func.func @g' sig ' {\n  %0 = arith.' op ' %a, %b : i32\n' ret;
+op: 'addi' | 'muli';

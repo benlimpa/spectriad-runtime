@@ -17,6 +17,15 @@ Honesty rules:
 * An unconfigured subject compiler is an infrastructure outcome, not a
   pass: the run reports the hash-check results it could obtain and
   says the compiler never ran.
+* An empty seed corpus is not a clean replay: a unit exported with no
+  frozen seeds has nothing to re-evaluate, and the run says so (exit 5)
+  instead of reporting the vacuous zero.
+
+Both unit schemas replay here. In a spec-only (schema 2) unit a
+record's `source` is the GENERATOR it was drawn from, its input is
+regenerated from that generator composed over `spec/base.pg`, and an
+output constraint is evaluated only on the generators its statement
+scopes it to.
 """
 
 from __future__ import annotations
@@ -28,6 +37,47 @@ from . import bundle, generation, runner
 from .checker.ptc import check_constraint
 
 VERDICT_ORDER = ("PASS", "FAIL", "STUB", "ABSTAIN", "NO_TRIGGER", "ERROR")
+
+
+def _grammar_texts(unit: dict) -> dict[str, str]:
+    """The grammar each generating stream draws from, keyed as the corpus
+    keys it: source column in schema 1, generator id in schema 2 (where
+    the text is the generator composed over the shared base)."""
+    if unit["schema"] == bundle.SPEC_ONLY_SCHEMA:
+        return {
+            gid: bundle.statement_grammar_text(unit, gid)
+            for gid in bundle.generator_ids(unit)
+        }
+    return {src: entry["grammar_text"] for src, entry in unit["sources"].items()}
+
+
+def _scoped_constraints(unit: dict) -> dict[str, list[tuple[str, dict]]]:
+    """Which output constraints are evaluated on a pair from each stream.
+
+    Schema 1 evaluates every source column's constraints on every pair,
+    under source-prefixed ids. Schema 2 evaluates a constraint only on
+    the generators its statement scopes it to, under its bare id: a
+    property claiming something about one input population says nothing
+    about another, and counting it there would inflate the verdict set
+    with pairs it never spoke about.
+    """
+    if unit["schema"] == bundle.SPEC_ONLY_SCHEMA:
+        cgens = bundle.constraint_generators(unit)
+        out: dict[str, list[tuple[str, dict]]] = {
+            gid: [] for gid in bundle.generator_ids(unit)
+        }
+        for c in unit["output_constraints"]:
+            cid = str(c.get("id"))
+            for gid in cgens.get(cid, []):
+                if gid in out:
+                    out[gid].append((cid, c))
+        return out
+    every = [
+        (f"{csrc}/{c.get('id')}", c)
+        for csrc, entry in unit["sources"].items()
+        for c in entry["output_constraints"]
+    ]
+    return {src: every for src in unit["sources"]}
 
 
 def replay_unit(
@@ -48,6 +98,7 @@ def replay_unit(
     manifest = unit["manifest"]
     report: dict = {
         "unit": manifest.get("unit"),
+        "schema": unit["schema"],
         "unit_dir": str(unit["unit_dir"]),
         "manifest_spec_hash": manifest.get("spec_hash"),
         "recomputed_spec_hash": unit["spec_hash"],
@@ -78,8 +129,13 @@ def replay_unit(
     report["build_identity"] = build
 
     records = unit["corpus"].get("records", [])
+    # Decided on the RAW corpus: `--limit 0` is a caller's choice, an
+    # empty export is a property of the unit.
+    report["corpus_empty"] = not records
     if limit is not None:
         records = records[:limit]
+    grammars = _grammar_texts(unit)
+    scoped = _scoped_constraints(unit)
     hash_matched, mismatches, gen_failures = 0, [], []
     acceptance = {"agree": 0, "disagree": []}
     infrastructure = []
@@ -90,15 +146,16 @@ def replay_unit(
         seed, src = rec.get("seed"), rec.get("source")
         if progress and i % 50 == 0:
             progress(f"seed {i + 1}/{len(records)}")
-        entry = unit["sources"].get(src)
-        if entry is None:
+        grammar_text = grammars.get(src)
+        if grammar_text is None:
+            kind = "generator" if unit["schema"] == bundle.SPEC_ONLY_SCHEMA else "source"
             gen_failures.append(
-                {"seed": seed, "source": src, "error": f"unknown source {src!r}"}
+                {"seed": seed, "source": src, "error": f"unknown {kind} {src!r}"}
             )
             continue
         try:
             text = generation.generate_from_text(
-                entry["grammar_text"], seed, stem=f"{report['unit']}-{src}"
+                grammar_text, seed, stem=f"{report['unit']}-{src}"
             )
         except RuntimeError as e:
             gen_failures.append(
@@ -142,11 +199,9 @@ def replay_unit(
             acceptance["agree"] += 1
         if not res["ok"]:
             continue
-        for csrc, entry2 in unit["sources"].items():
-            for constraint in entry2["output_constraints"]:
-                cid = f"{csrc}/{constraint.get('id')}"
-                v = check_constraint(constraint, text, res["output"])
-                verdict_sets.setdefault(cid, Counter())[v.status] += 1
+        for cid, constraint in scoped.get(src, []):
+            v = check_constraint(constraint, text, res["output"])
+            verdict_sets.setdefault(cid, Counter())[v.status] += 1
 
     report["seeds"] = {
         "total": len(records),
@@ -171,7 +226,11 @@ def _exit_code(report: dict) -> int:
     """0 clean; 2 hash mismatch or generation failure; 3 compiler never
     ran (not configured, or every configured run was an infrastructure
     failure); 4 behavioral difference (constraint FAIL/ERROR or
-    acceptance disagreement)."""
+    acceptance disagreement); 5 the unit's seed corpus is empty, so
+    there was nothing to replay and `generate` is the meaningful mode
+    for it."""
+    if report["corpus_empty"]:
+        return 5
     if report["seeds"]["hash_mismatched"] or report["seeds"]["generation_failures"]:
         return 2
     behavioral = bool(report["acceptance"]["disagree"]) or any(
@@ -195,6 +254,14 @@ def format_report(report: dict) -> str:
     if report.get("build_identity"):
         b = report["build_identity"]
         lines.append(f"build identity: {b['id']}  ({b['command']})")
+    if report.get("corpus_empty"):
+        lines.append(
+            "seed corpus: empty — this unit was exported with no frozen "
+            "seeds, so replay re-evaluated nothing (not a clean run); "
+            "`generate` is the meaningful mode for it"
+        )
+        lines.append(f"exit code: {report['exit_code']}")
+        return "\n".join(lines)
     s = report["seeds"]
     lines.append(
         f"seeds: {s['total']} total, {s['hash_matched']} regenerated with "
