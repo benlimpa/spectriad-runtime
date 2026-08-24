@@ -5,8 +5,8 @@ the oracle reports Unavailable and the verdict is an honest STUB):
 
   SPECTRIAD_UPSTREAM_MLIR_OPT  upstream mlir-opt from the SAME LLVM
                                revision the subject compiler builds
-                               against (for Loom: the submodule build,
-                               see loom/README.md)
+                               against (for Loom: its LLVM submodule
+                               build)
   SPECTRIAD_LOOM_DFG_SIM       loom-dfg-sim (dataflow simulator)
 
 roundtrip_equiv — for a RAISING pass, lower

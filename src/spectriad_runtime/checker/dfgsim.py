@@ -27,9 +27,9 @@ The report is keyed as follows:
   operation_fire_counts, event_count, diagnostics, ...
 
 Because the tool wants a file in and a file out, neither of which
-survives the ssh hop to bibim, SPECTRIAD_LOOM_DFG_SIM points at a
-wrapper giving it a stdin/stdout shape (`loom/remote-dfg-sim.sh`):
-MLIR in, report JSON out, diagnostics on stderr, exit code preserved.
+survives a remote (e.g. ssh) command prefix, SPECTRIAD_LOOM_DFG_SIM
+should point at a wrapper giving it a stdin/stdout shape: MLIR in,
+report JSON out, diagnostics on stderr, exit code preserved.
 
 A non-zero exit is NOT an error here. The simulator statically
 validates a graph before running it (token cardinality, residual

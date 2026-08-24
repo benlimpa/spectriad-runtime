@@ -1,4 +1,4 @@
-"""SMuRF-style generic predicate/feature library over the xdsl AST.
+"""Generic predicate/feature library over the xdsl AST.
 
 These are the dialect-agnostic building blocks output-spec rules can
 call directly from the PTC DSL (checker/ptc.py dispatches funcalls

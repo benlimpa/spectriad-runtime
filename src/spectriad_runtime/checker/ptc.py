@@ -1,8 +1,7 @@
-"""PTC-subset evaluator: parse and evaluate SMuRF-style trigger/rule
-constraints against a pair of MLIR node trees.
+"""PTC evaluator: parse and evaluate trigger/rule constraints against
+a pair of MLIR node trees.
 
-Supported rule grammar (subset of SMuRF's rule DSL plus the paper's
-executable extensions):
+Supported rule grammar:
 
   expr        := andexpr ('or' andexpr)*
   andexpr     := unary ('and' unary)*
