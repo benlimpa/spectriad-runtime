@@ -44,7 +44,12 @@ from pathlib import Path
 
 from . import bundle, generation, runner
 from .checker.ptc import check_constraint
-from .replay import VERDICT_ORDER, _grammar_texts, _scoped_constraints
+from .replay import (
+    VERDICT_ORDER,
+    _grammar_texts,
+    _scoped_constraints,
+    _unevaluated_constraints,
+)
 
 PRESERVE_LIST_CAP = 25
 
@@ -218,6 +223,7 @@ def generate_unit(
         for cid, c in sorted(verdict_sets.items())
     }
     report["findings_preserved"] = findings
+    report["unevaluated_constraints"] = _unevaluated_constraints(unit)
     report["elapsed_s"] = round(time.monotonic() - started, 3)
     report["exit_code"] = _exit_code(report)
     (out_dir / "report.json").write_text(json.dumps(report, indent=2) + "\n")
@@ -289,6 +295,11 @@ def format_report(report: dict) -> str:
         for cid, counts in report["verdict_sets"].items():
             parts = ", ".join(f"{k}={v}" for k, v in counts.items())
             lines.append(f"  {cid}: {parts}")
+    for cid in report.get("unevaluated_constraints", []):
+        lines.append(
+            f"  WARNING {cid}: scoped onto no generator this unit carries "
+            "— never evaluated (not covered)"
+        )
     lines.append(
         f"findings preserved: {report['findings_preserved']} under "
         f"{report['out_dir']}/findings"

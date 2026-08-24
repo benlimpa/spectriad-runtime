@@ -95,6 +95,22 @@ class SpecOnlyReplayTest(unittest.TestCase):
         self.assertEqual(report["exit_code"], 5)
         self.assertIn("generate", replay.format_report(report))
 
+    def test_constraint_scoped_to_a_missing_generator_is_loud(self):
+        configure_stub()
+        with tempfile.TemporaryDirectory() as td:
+            dest = Path(td) / "u"
+            shutil.copytree(FIXTURE_UNIT, dest)
+            nl = dest / "spec" / "structured_nl.yaml"
+            nl.write_text(
+                nl.read_text().replace("generator: I1", "generator: nope", 1)
+            )
+            manifest = json.loads((dest / "manifest.json").read_text())
+            manifest["spec_hash"] = bundle.spec_hash(dest)
+            (dest / "manifest.json").write_text(json.dumps(manifest))
+            report = replay.replay_unit(dest)
+        self.assertEqual(len(report["unevaluated_constraints"]), 1)
+        self.assertIn("WARNING", replay.format_report(report))
+
 
 class SpecOnlyGenerateTest(unittest.TestCase):
     def setUp(self):

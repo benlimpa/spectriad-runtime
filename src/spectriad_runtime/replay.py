@@ -51,6 +51,24 @@ def _grammar_texts(unit: dict) -> dict[str, str]:
     return {src: entry["grammar_text"] for src, entry in unit["sources"].items()}
 
 
+def _unevaluated_constraints(unit: dict) -> list[str]:
+    """Output constraints scoped onto no generator the unit carries.
+
+    An authoring typo in a statement's `generator:` field would
+    otherwise remove its constraint from every verdict set silently,
+    and absence reads as covered. The report names such constraints so
+    zero evaluations is loud, never mistaken for a pass.
+    """
+    if unit["schema"] != bundle.SPEC_ONLY_SCHEMA:
+        return []
+    gens = set(bundle.generator_ids(unit))
+    return sorted(
+        cid
+        for cid, targets in bundle.constraint_generators(unit).items()
+        if not set(targets) & gens
+    )
+
+
 def _scoped_constraints(unit: dict) -> dict[str, list[tuple[str, dict]]]:
     """Which output constraints are evaluated on a pair from each stream.
 
@@ -218,6 +236,7 @@ def replay_unit(
         cid: {s: c[s] for s in VERDICT_ORDER if c[s]}
         for cid, c in sorted(verdict_sets.items())
     }
+    report["unevaluated_constraints"] = _unevaluated_constraints(unit)
     report["exit_code"] = _exit_code(report)
     return report
 
@@ -303,5 +322,10 @@ def format_report(report: dict) -> str:
         for cid, counts in report["verdict_sets"].items():
             parts = ", ".join(f"{k}={v}" for k, v in counts.items())
             lines.append(f"  {cid}: {parts}")
+    for cid in report.get("unevaluated_constraints", []):
+        lines.append(
+            f"  WARNING {cid}: scoped onto no generator this unit carries "
+            "— never evaluated (not covered)"
+        )
     lines.append(f"exit code: {report['exit_code']}")
     return "\n".join(lines)
