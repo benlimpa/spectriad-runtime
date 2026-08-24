@@ -1,23 +1,30 @@
 """The `spectriad-runtime` command line.
 
-Two modes:
+Three modes:
 
   spectriad-runtime replay <bundle-unit-dir> [options]
   spectriad-runtime generate <bundle-unit-dir> --seeds N|--duration S [options]
+  spectriad-runtime suite <bundle-root> [options]
 
-`replay` deterministically re-evaluates the unit's frozen seed corpus;
+`replay` deterministically re-evaluates one unit's frozen seed corpus;
 `generate` is budgeted property-based testing over fresh inputs from
-the unit's grammars.
+that unit's grammars; `suite` discovers every unit of a bundle
+checkout, runs each in the mode it can answer for, and reduces their
+exit codes to one under an optional drift-expectation file.
 
-Both modes read the unit's stored runner declaration (`runner.json`,
+Every mode reads a unit's stored runner declaration (`runner.json`,
 written by the bundle exporter) when one is present; explicit
 `--runner-env/--runner-flags` override it.
 
-Exit codes (shared contract): 0 clean; 1 usage or bundle error; 2 input
-regeneration hash mismatch or generation failure; 3 the subject
+Exit codes (shared contract): 0 clean; 1 usage or bundle error, or a
+suite that discovered no units; 2 input regeneration hash mismatch,
+generation failure, or a unit that would not load; 3 the subject
 compiler never ran (not configured, or infrastructure failures only);
 4 behavioral difference (constraint FAIL/ERROR, acceptance drift, or a
-rejected generated input).
+rejected generated input); 5 the unit's seed corpus is empty, so
+replay had nothing to re-evaluate and `generate` is the meaningful
+mode for it. A suite exits with the highest code any unit contributed,
+after expectations are applied.
 """
 
 from __future__ import annotations
@@ -28,7 +35,7 @@ import shlex
 import sys
 from pathlib import Path
 
-from . import __version__, bundle, generate, replay
+from . import __version__, bundle, generate, replay, suite
 
 
 def _add_runner_arguments(sub: argparse.ArgumentParser) -> None:
@@ -96,6 +103,40 @@ def _parser() -> argparse.ArgumentParser:
         "(default spectriad-generate-<unit> in the working directory)",
     )
     _add_runner_arguments(gp)
+
+    sp = sub.add_parser(
+        "suite",
+        help="discover and run every unit of a bundle checkout, reducing "
+        "their exit codes to one",
+    )
+    sp.add_argument("root", help="path to a specification-bundle checkout")
+    sp.add_argument(
+        "--mode",
+        choices=("auto", "replay", "generate"),
+        default="auto",
+        help="auto replays a unit with seed records and generates over one "
+        "whose corpus is empty; replay and generate force one mode on "
+        "every unit (default auto)",
+    )
+    sp.add_argument(
+        "--generate-seeds",
+        type=int,
+        default=suite.DEFAULT_GENERATE_SEEDS,
+        help="seed budget for each unit run in generate mode "
+        f"(default {suite.DEFAULT_GENERATE_SEEDS})",
+    )
+    sp.add_argument(
+        "--out",
+        help="output directory for per-unit findings and suite-report.json "
+        f"(default {suite.DEFAULT_OUT_DIR} in the working directory)",
+    )
+    sp.add_argument(
+        "--expectations",
+        help="drift-expectation file: unit id -> {\"status\": "
+        "\"clean\"|\"known-drift\", \"note\": ...} "
+        f"(default {suite.EXPECTATIONS_FILE} at the bundle root when present)",
+    )
+    _add_runner_arguments(sp)
     return p
 
 
@@ -125,6 +166,19 @@ def main(argv: list[str] | None = None) -> int:
                 progress=progress,
             )
             print(replay.format_report(report))
+        elif args.command == "suite":
+            report = suite.run_suite(
+                Path(args.root),
+                _declaration(args),
+                mode=args.mode,
+                generate_seeds=args.generate_seeds,
+                out_dir=Path(args.out) if args.out else None,
+                expectations_path=(
+                    Path(args.expectations) if args.expectations else None
+                ),
+                progress=progress,
+            )
+            print(suite.format_report(report))
         else:
             if args.seeds is None and args.duration is None:
                 print(
